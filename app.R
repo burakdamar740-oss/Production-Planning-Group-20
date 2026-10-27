@@ -3,7 +3,7 @@ library(shiny)
 # Kendi modul dosyalarini burada yukle (dosya adlarini kendi projene gore duzelt).
 # Eger dosyalar projedeki "R/" klasorundeyse Shiny bunlari otomatik yukler,
 # bu durumda asagidaki source() satirina gerek yoktur.
-
+source("R/moving_average.R")
 # source("learning_module.R")   # Learning Curve modulun dosyasi varsa
 
 ui <- navbarPage("Production Planning",
