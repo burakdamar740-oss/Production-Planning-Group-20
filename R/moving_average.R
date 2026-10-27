@@ -280,10 +280,101 @@ cat("En iyi N           :", auto_result_mape$best_n, "\n")
 cat("Minimum MAPE (%)   :", round(auto_result_mape$best_error, 4), "\n")
 cat("Sonraki periyot tahmini:", round(auto_result_mape$next_forecast, 2), "\n")
 
+# =============================================================================
+# 9) SHINY MODUL TANIMLARI
+# =============================================================================
 
+# UI Fonksiyonu
+moving_average_ui <- function(id) {
+  ns <- NS(id)
+  tagList(
+    sidebarLayout(
+      sidebarPanel(
+        textAreaInput(
+          ns("demand_input"), 
+          "Talep Verileri (Virgülle ayırın):", 
+          value = "120, 130, 125, 140, 135, 150, 145, 160, 155, 170, 165, 180",
+          rows = 3
+        ),
+        radioButtons(
+          ns("mode"), 
+          "Mod Seçimi:", 
+          choices = c("Manuel" = "manual", "Otomatik" = "auto")
+        ),
+        conditionalPanel(
+          condition = sprintf("input['%s'] == 'manual'", ns("mode")),
+          numericInput(ns("n_val"), "N Değeri:", value = 3, min = 1, step = 1)
+        ),
+        conditionalPanel(
+          condition = sprintf("input['%s'] == 'auto'", ns("mode")),
+          numericInput(ns("max_n"), "Maksimum N:", value = 5, min = 2, step = 1),
+          selectInput(ns("criterion"), "Kriter:", choices = c("MAD", "MSE", "MAPE"))
+        ),
+        actionButton(ns("calc_btn"), "Hesapla", class = "btn-primary")
+      ),
+      mainPanel(
+        h4("Tahmin Sonuçları"),
+        verbatimTextOutput(ns("summary_text")),
+        plotOutput(ns("forecast_plot")),
+        h4("Tablo"),
+        tableOutput(ns("result_table"))
+      )
+    )
+  )
+}
+
+# Server Fonksiyonu
+moving_average_server <- function(id) {
+  moduleServer(id, function(input, output, session) {
+    
+    parsed_demand <- reactive({
+      req(input$demand_input)
+      vals <- as.numeric(trimws(unlist(strsplit(input$demand_input, ","))))
+      validate(need(!any(is.na(vals)) && length(vals) >= 2, "Lütfen geçerli sayısal talep verileri girin."))
+      vals
+    })
+    
+    calc_results <- eventReactive(input$calc_btn, {
+      demands <- parsed_demand()
+      if (input$mode == "manual") {
+        ma_manual(demands, input$n_val)
+      } else {
+        ma_auto(demands, input$max_n, input$criterion)
+      }
+    }, ignoreNULL = FALSE)
+    
+    output$summary_text <- renderPrint({
+      res <- calc_results()
+      if (res$mode == "manual") {
+        cat("Mod: Manuel | N:", res$n, "\n")
+        cat("Sonraki Periyot Tahmini:", round(res$next_forecast, 2), "\n")
+        cat("MAD:", round(res$metrics$MAD, 4), "| MSE:", round(res$metrics$MSE, 4), "| MAPE:", paste0(round(res$metrics$MAPE, 2), "%\n"))
+      } else {
+        cat("Mod: Otomatik | En İyi N:", res$best_n, "(Kriter:", res$criterion, ")\n")
+        cat("Sonraki Periyot Tahmini:", round(res$next_forecast, 2), "\n")
+        cat("Minimum Hata:", round(res$best_error, 4), "\n")
+      }
+    })
+    
+    output$forecast_plot <- renderPlot({
+      res <- calc_results()
+      demands <- parsed_demand()
+      plot_ma(demands, res$forecasts, paste0("Moving Average Tahmini (N = ", if (res$mode == "manual") res$n else res$best_n, ")"))
+    })
+    
+    output$result_table <- renderTable({
+      res <- calc_results()
+      if (res$mode == "manual") {
+        res$table
+      } else {
+        res$comparison_table
+      }
+    })
+  })
+}
 # -----------------------------------------------------------------------------
 # (Opsiyonel) Grafik: Gercek talep ve MA tahmini
 # plot_ma() fonksiyonu yukarida (7b bolumunde) tanimlidir.
 # -----------------------------------------------------------------------------
 plot_ma(demand_data, auto_result$forecasts,
-        paste0("MA(", auto_result$best_n, ") - Kriter: ", auto_result$criterion))
+        paste0("MA(", auto_result$best_n, ") - Kriter: ", auto_result$criterion)) 
