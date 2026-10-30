@@ -15,6 +15,13 @@
 #   - R/seasonal.R            -> seasonal_ui(), seasonal_server()
 #   - R/arima.R               -> arima_ui(), arima_server()
 # =============================================================================
+if (!requireNamespace("readxl", quietly = TRUE)) {
+  install.packages("readxl", repos = "https://cloud.r-project.org")
+}
+if (!requireNamespace("forecast", quietly = TRUE)) {
+  install.packages("forecast", repos = "https://cloud.r-project.org")
+}
+
 
 library(shiny)
 library(readxl)
